@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model banners {
+  id         Int             @id @default(autoincrement())
+  uuid       String          @db.Char(36)
+  title      String          @db.VarChar(255)
+  subtitle   String?         @db.VarChar(255)
+  image      String?         @db.VarChar(255)
+  buttonText String?         @db.VarChar(255)
+  buttonUrl  String?         @db.VarChar(255)
+  position   Int?            @default(1)
+  status     banners_status? @default(activo)
+  createdAt  DateTime        @db.DateTime(0)
+  updatedAt  DateTime        @db.DateTime(0)
+}
+
+model categories {
+  id          Int                @id @default(autoincrement())
+  uuid        String             @db.Char(36)
+  name        String             @db.VarChar(255)
+  slug        String             @unique(map: "slug") @db.VarChar(255)
+  description String?            @db.Text
+  image       String?            @db.VarChar(255)
+  status      categories_status? @default(activo)
+  createdAt   DateTime           @db.DateTime(0)
+  updatedAt   DateTime           @db.DateTime(0)
+  products    products[]
+}
+
+model order_items {
+  id        Int      @id @default(autoincrement())
+  uuid      String   @db.Char(36)
+  orderId   Int
+  productId Int
+  quantity  Int      @default(1)
+  price     Decimal  @db.Decimal(10, 2)
+  subtotal  Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @db.DateTime(0)
+  updatedAt DateTime @db.DateTime(0)
+  orders    orders   @relation(fields: [orderId], references: [id], onDelete: Cascade, map: "order_items_ibfk_1")
+  products  products @relation(fields: [productId], references: [id], onDelete: Cascade, map: "order_items_ibfk_2")
+
+  @@index([orderId], map: "orderId")
+  @@index([productId], map: "productId")
+}
+
+model orders {
+  id              Int                   @id @default(autoincrement())
+  uuid            String                @db.Char(36)
+  userId          Int?
+  customerName    String                @db.VarChar(255)
+  customerEmail   String?               @db.VarChar(255)
+  customerPhone   String?               @db.VarChar(255)
+  shippingAddress String?               @db.Text
+  total           Decimal               @default(0.00) @db.Decimal(10, 2)
+  status          orders_status?        @default(pendiente)
+  paymentStatus   orders_paymentStatus? @default(pendiente)
+  paymentMethod   String?               @db.VarChar(255)
+  createdAt       DateTime              @db.DateTime(0)
+  updatedAt       DateTime              @db.DateTime(0)
+  order_items     order_items[]
+  users           users?                @relation(fields: [userId], references: [id], map: "orders_ibfk_1")
+
+  @@index([userId], map: "userId")
+}
+
+model products {
+  id            Int              @id @default(autoincrement())
+  uuid          String           @db.Char(36)
+  name          String           @db.VarChar(255)
+  slug          String           @unique(map: "slug") @db.VarChar(255)
+  description   String?          @db.Text
+  price         Decimal          @default(0.00) @db.Decimal(10, 2)
+  discountPrice Decimal?         @db.Decimal(10, 2)
+  stock         Int              @default(0)
+  sku           String?          @unique(map: "sku") @db.VarChar(255)
+  image         String?          @db.VarChar(255)
+  status        products_status? @default(activo)
+  featured      Boolean?         @default(false)
+  categoryId    Int?
+  createdAt     DateTime         @db.DateTime(0)
+  updatedAt     DateTime         @db.DateTime(0)
+  order_items   order_items[]
+  categories    categories?      @relation(fields: [categoryId], references: [id], map: "products_ibfk_1")
+
+  @@index([categoryId], map: "categoryId")
+}
+
+model users {
+  id        Int           @id @default(autoincrement())
+  uuid      String        @db.Char(36)
+  name      String        @db.VarChar(255)
+  email     String        @unique(map: "email") @db.VarChar(255)
+  password  String        @db.VarChar(255)
+  role      users_role?   @default(cliente)
+  phone     String?       @db.VarChar(255)
+  status    users_status? @default(activo)
+  createdAt DateTime      @db.DateTime(0)
+  updatedAt DateTime      @db.DateTime(0)
+  orders    orders[]
+}
+
+enum users_role {
+  admin
+  staff
+  cliente
+}
+
+enum categories_status {
+  activo
+  inactivo
+}
+
+enum users_status {
+  activo
+  inactivo
+}
+
+enum orders_status {
+  pendiente
+  pagado
+  preparando
+  enviado
+  entregado
+  cancelado
+}
+
+enum banners_status {
+  activo
+  inactivo
+}
+
+enum orders_paymentStatus {
+  pendiente
+  pagado
+  fallido
+}
+
+enum products_status {
+  activo
+  inactivo
+}
