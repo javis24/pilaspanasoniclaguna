@@ -2,12 +2,19 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { getCurrentAdmin } from "@/app/lib/auth";
 import { v4 as uuidv4 } from "uuid";
-import type { products as ProductModel } from "@prisma/client";
 
 type CartItem = {
   id: number;
   quantity: number;
   price: number;
+};
+
+type ProductModel = {
+  id: number;
+  name: string;
+  price: unknown;
+  discountPrice: unknown | null;
+  stock: number;
 };
 
 export async function GET() {
@@ -85,14 +92,14 @@ export async function POST(request: Request) {
 
     const productIds = items.map((item: CartItem) => Number(item.id));
 
-    const products: ProductModel[] = await prisma.products.findMany({
+ const products = (await prisma.products.findMany({
   where: {
     id: {
       in: productIds,
     },
     status: "activo",
   },
-});
+})) as ProductModel[];
 
 if (products.length !== productIds.length) {
   return NextResponse.json(
