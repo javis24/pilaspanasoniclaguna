@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { getCurrentAdmin } from "@/app/lib/auth";
 import { v4 as uuidv4 } from "uuid";
+import type { products as ProductModel } from "@prisma/client";
 
 type CartItem = {
   id: number;
@@ -84,66 +85,70 @@ export async function POST(request: Request) {
 
     const productIds = items.map((item: CartItem) => Number(item.id));
 
-    const products = await prisma.products.findMany({
-      where: {
-        id: {
-          in: productIds,
-        },
-        status: "activo",
+    const products: ProductModel[] = await prisma.products.findMany({
+  where: {
+    id: {
+      in: productIds,
+    },
+    status: "activo",
+  },
+});
+
+if (products.length !== productIds.length) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "Uno o más productos no existen o están inactivos",
+    },
+    { status: 400 }
+  );
+}
+
+for (const item of items as CartItem[]) {
+  const product = products.find(
+    (p: ProductModel) => p.id === Number(item.id)
+  );
+
+  if (!product) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Producto no encontrado",
       },
-    });
+      { status: 400 }
+    );
+  }
 
-    if (products.length !== productIds.length) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Uno o más productos no existen o están inactivos",
-        },
-        { status: 400 }
-      );
-    }
+  if (Number(item.quantity) > product.stock) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `No hay stock suficiente para: ${product.name}`,
+      },
+      { status: 400 }
+    );
+  }
+}
 
-    for (const item of items as CartItem[]) {
-      const product = products.find((p) => p.id === Number(item.id));
+const calculatedItems = (items as CartItem[]).map((item) => {
+  const product = products.find(
+    (p: ProductModel) => p.id === Number(item.id)
+  )!;
 
-      if (!product) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message: "Producto no encontrado",
-          },
-          { status: 400 }
-        );
-      }
+  const realPrice = product.discountPrice
+    ? Number(product.discountPrice)
+    : Number(product.price);
 
-      if (Number(item.quantity) > product.stock) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message: `No hay stock suficiente para: ${product.name}`,
-          },
-          { status: 400 }
-        );
-      }
-    }
+  const quantity = Number(item.quantity);
+  const subtotal = realPrice * quantity;
 
-    const calculatedItems = (items as CartItem[]).map((item) => {
-      const product = products.find((p) => p.id === Number(item.id))!;
-
-      const realPrice = product.discountPrice
-        ? Number(product.discountPrice)
-        : Number(product.price);
-
-      const quantity = Number(item.quantity);
-      const subtotal = realPrice * quantity;
-
-      return {
-        product,
-        quantity,
-        price: realPrice,
-        subtotal,
-      };
-    });
+  return {
+    product,
+    quantity,
+    price: realPrice,
+    subtotal,
+  };
+});
 
     const total = calculatedItems.reduce((sum, item) => sum + item.subtotal, 0);
 
