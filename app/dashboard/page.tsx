@@ -14,6 +14,17 @@ type ProductModel = {
   stock: number;
 };
 
+type RecentOrderModel = {
+  id: number;
+  customerName: string;
+  total: unknown;
+  status: string | null;
+  createdAt: Date;
+  order_items: {
+    id: number;
+  }[];
+};
+
 export default async function DashboardPage() {
   const productsCount = await prisma.products.count();
   const categoriesCount = await prisma.categories.count();
@@ -27,7 +38,7 @@ export default async function DashboardPage() {
     },
   });
 
-  const recentOrders = await prisma.orders.findMany({
+  const recentOrders = (await prisma.orders.findMany({
     take: 5,
     orderBy: {
       createdAt: "desc",
@@ -35,16 +46,16 @@ export default async function DashboardPage() {
     include: {
       order_items: true,
     },
-  });
+  })) as RecentOrderModel[];
 
- const products = (await prisma.products.findMany()) as ProductModel[];
+  const products = (await prisma.products.findMany()) as ProductModel[];
 
-const inventoryValue = products.reduce(
-  (total: number, product: ProductModel) => {
-    return total + Number(product.price) * product.stock;
-  },
-  0
-);
+  const inventoryValue = products.reduce(
+    (total: number, product: ProductModel) => {
+      return total + Number(product.price) * product.stock;
+    },
+    0
+  );
 
   return (
     <div className="space-y-8">
@@ -101,23 +112,40 @@ const inventoryValue = products.reduce(
                   <th className="px-4 py-3">Fecha</th>
                 </tr>
               </thead>
+
               <tbody>
-                {recentOrders.map((order) => (
+                {recentOrders.map((order: RecentOrderModel) => (
                   <tr key={order.id} className="border-t">
                     <td className="px-4 py-3 font-medium">
                       {order.customerName}
                     </td>
-                    <td className="px-4 py-3">${Number(order.total).toFixed(2)}</td>
+
+                    <td className="px-4 py-3">
+                      ${Number(order.total).toFixed(2)}
+                    </td>
+
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
-                        {order.status}
+                        {order.status || "pendiente"}
                       </span>
                     </td>
+
                     <td className="px-4 py-3">
                       {new Date(order.createdAt).toLocaleDateString("es-MX")}
                     </td>
                   </tr>
                 ))}
+
+                {recentOrders.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-4 py-8 text-center text-slate-500"
+                    >
+                      No hay pedidos recientes.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -128,6 +156,7 @@ const inventoryValue = products.reduce(
             <div className="rounded-2xl bg-green-50 p-3 text-green-600">
               <DollarSign size={26} />
             </div>
+
             <div>
               <p className="text-sm text-slate-500">Valor de inventario</p>
               <h2 className="text-2xl font-bold text-slate-900">
