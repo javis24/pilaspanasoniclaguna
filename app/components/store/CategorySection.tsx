@@ -4,8 +4,17 @@ import { prisma } from "@/app/lib/prisma";
 
 const icons = [Battery, BatteryCharging, Zap];
 
+type CategoryWithProducts = {
+  id: number;
+  name: string;
+  slug: string;
+  products: {
+    id: number;
+  }[];
+};
+
 export default async function CategorySection() {
-  const categories = await prisma.categories.findMany({
+  const categories = (await prisma.categories.findMany({
     where: {
       status: "activo",
     },
@@ -15,7 +24,7 @@ export default async function CategorySection() {
     orderBy: {
       name: "asc",
     },
-  });
+  })) as CategoryWithProducts[];
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-8">
@@ -29,7 +38,7 @@ export default async function CategorySection() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {categories.slice(0, 8).map((category, index) => {
+        {categories.slice(0, 8).map((category: CategoryWithProducts, index: number) => {
           const Icon = icons[index % icons.length];
 
           return (
