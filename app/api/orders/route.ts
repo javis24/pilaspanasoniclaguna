@@ -187,52 +187,50 @@ export async function POST(request: Request) {
 
     const now = new Date();
 
-    const order = await prisma.$transaction(
-      async (tx: TransactionClient) => {
-        const createdOrder = await tx.orders.create({
-          data: {
-            uuid: uuidv4(),
-            customerName,
-            customerEmail: customerEmail || null,
-            customerPhone,
-            shippingAddress,
-            total,
-            status: "pendiente",
-            paymentStatus: "pendiente",
-            paymentMethod: paymentMethod || "whatsapp",
-            createdAt: now,
-            updatedAt: now,
-          },
-        });
+    const order = await prisma.$transaction(async (tx: TransactionClient) => {
+  const createdOrder = await tx.orders.create({
+    data: {
+      uuid: uuidv4(),
+      customerName,
+      customerEmail: customerEmail || null,
+      customerPhone,
+      shippingAddress,
+      total,
+      status: "pendiente",
+      paymentStatus: "pendiente",
+      paymentMethod: paymentMethod || "whatsapp",
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
 
-        for (const item of calculatedItems) {
-          await tx.order_items.create({
-            data: {
-              uuid: uuidv4(),
-              orderId: createdOrder.id,
-              productId: item.product.id,
-              quantity: item.quantity,
-              price: item.price,
-              subtotal: item.subtotal,
-              createdAt: now,
-              updatedAt: now,
-            },
-          });
+  for (const item of calculatedItems) {
+    await tx.order_items.create({
+      data: {
+        uuid: uuidv4(),
+        orderId: createdOrder.id,
+        productId: item.product.id,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.subtotal,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
 
-          await tx.products.update({
-            where: {
-              id: item.product.id,
-            },
-            data: {
-              stock: item.product.stock - item.quantity,
-              updatedAt: now,
-            },
-          });
-        }
+    await tx.products.update({
+      where: {
+        id: item.product.id,
+      },
+      data: {
+        stock: item.product.stock - item.quantity,
+        updatedAt: now,
+      },
+    });
+  }
 
-        return createdOrder;
-      }
-    );
+  return createdOrder;
+});
 
     const fullOrder = await prisma.orders.findUnique({
       where: {
