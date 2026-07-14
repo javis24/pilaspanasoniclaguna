@@ -2,16 +2,16 @@
   "name": "tienda-pilas-panasonic",
   "version": "0.1.0",
   "private": true,
- "scripts": {
-  "dev": "next dev",
-  "build": "prisma generate && next build",
-  "start": "next start",
-  "lint": "next lint"
-},
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "@vercel/blob": "^2.6.0",
+    "@vercel/blob": "^2.6.1",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",
     "lucide-react": "^1.23.0",

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
+import ImageUploader from "@/app/components/dashboard/ImageUploader";
 
 type Category = {
   id: number;
@@ -339,14 +340,17 @@ export default function ProductForm({ categories, product }: Props) {
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Ruta de imagen
             </label>
-            <input
-              name="image"
+            <ImageUploader
+              label="Imagen del producto"
               value={form.image}
-              onChange={handleChange}
-              className="text-black w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              placeholder="/images/products/producto.png"
+              folder="products"
+              onChange={(url) =>
+                setForm((prev) => ({
+                  ...prev,
+                  image: url,
+                }))
+              }
             />
-
             <p className="mt-2 text-xs text-slate-500">
               Por ahora se guarda la ruta de imagen. Después podemos agregar
               carga directa de archivos.
