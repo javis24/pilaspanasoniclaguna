@@ -5,19 +5,51 @@ import { prisma } from "@/app/lib/prisma";
 import DeleteProductButton from "@/app/components/dashboard/DeleteProductButton";
 import ToggleProductStatusButton from "@/app/components/dashboard/ToggleProductStatusButton";
 
+type ProductModel = {
+  id: number;
+  name: string;
+  slug: string;
+  sku: string | null;
+  price: unknown;
+  stock: number;
+  image: string | null;
+  status: "activo" | "inactivo" | null;
+  createdAt: Date;
+  categories: {
+    id: number;
+    name: string;
+  } | null;
+};
+
+function getImageSrc(image: string | null) {
+  if (!image) return null;
+
+  if (image.startsWith("/") || image.startsWith("http")) {
+    return image;
+  }
+
+  return `/${image}`;
+}
+
 export default async function ProductosPage() {
-  const products = await prisma.products.findMany({
+  const products = (await prisma.products.findMany({
     include: {
       categories: true,
     },
     orderBy: {
       createdAt: "desc",
     },
-  });
+  })) as ProductModel[];
 
   const totalProducts = products.length;
-  const activeProducts = products.filter((product) => product.status === "activo").length;
-  const lowStockProducts = products.filter((product) => product.stock <= 5).length;
+
+  const activeProducts = products.filter(
+    (product: ProductModel) => product.status === "activo"
+  ).length;
+
+  const lowStockProducts = products.filter(
+    (product: ProductModel) => product.stock <= 5
+  ).length;
 
   return (
     <div className="space-y-8">
@@ -42,11 +74,14 @@ export default async function ProductosPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-500">Total productos</p>
+              <p className="text-sm font-medium text-slate-500">
+                Total productos
+              </p>
               <h2 className="mt-2 text-3xl font-bold text-slate-900">
                 {totalProducts}
               </h2>
             </div>
+
             <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
               <Package size={26} />
             </div>
@@ -54,7 +89,9 @@ export default async function ProductosPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Productos activos</p>
+          <p className="text-sm font-medium text-slate-500">
+            Productos activos
+          </p>
           <h2 className="mt-2 text-3xl font-bold text-green-600">
             {activeProducts}
           </h2>
@@ -68,6 +105,7 @@ export default async function ProductosPage() {
                 {lowStockProducts}
               </h2>
             </div>
+
             <div className="rounded-2xl bg-orange-50 p-3 text-orange-600">
               <AlertTriangle size={26} />
             </div>
@@ -97,92 +135,97 @@ export default async function ProductosPage() {
             </thead>
 
             <tbody className="divide-y divide-slate-200">
-              {products.map((product) => (
-                <tr key={product.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-4">
-                      <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                        {product.image ? (
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            fill
-                            className="object-contain p-1"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Package size={22} className="text-slate-400" />
-                          </div>
-                        )}
+              {products.map((product: ProductModel) => {
+                const imageSrc = getImageSrc(product.image);
+
+                return (
+                  <tr key={product.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                          {imageSrc ? (
+                            <Image
+                              src={imageSrc}
+                              alt={product.name}
+                              fill
+                              className="object-contain p-1"
+                              sizes="56px"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Package size={22} className="text-slate-400" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="font-semibold text-slate-900">
+                            {product.name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {product.slug}
+                          </p>
+                        </div>
                       </div>
+                    </td>
 
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {product.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {product.slug}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
+                    <td className="px-6 py-4 text-slate-600">
+                      {product.sku || "Sin SKU"}
+                    </td>
 
-                  <td className="px-6 py-4 text-slate-600">
-                    {product.sku || "Sin SKU"}
-                  </td>
+                    <td className="px-6 py-4 text-slate-600">
+                      {product.categories?.name || "Sin categoría"}
+                    </td>
 
-                  <td className="px-6 py-4 text-slate-600">
-                    {product.categories?.name || "Sin categoría"}
-                  </td>
+                    <td className="px-6 py-4 font-semibold text-slate-900">
+                      ${Number(product.price).toFixed(2)}
+                    </td>
 
-                  <td className="px-6 py-4 font-semibold text-slate-900">
-                    ${Number(product.price).toFixed(2)}
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        product.stock <= 5
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {product.stock} piezas
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        product.status === "activo"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {product.status}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <div className="flex justify-end gap-2">
-                      <ToggleProductStatusButton
-                        productId={product.id}
-                        currentStatus={product.status || "activo"}
-                      />
-
-                      <Link
-                        href={`/dashboard/productos/${product.id}/editar`}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    <td className="px-6 py-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          product.stock <= 5
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
                       >
-                        <Pencil size={15} />
-                        Editar
-                      </Link>
+                        {product.stock} piezas
+                      </span>
+                    </td>
 
-                      <DeleteProductButton productId={product.id} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-6 py-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          product.status === "activo"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {product.status || "inactivo"}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end gap-2">
+                        <ToggleProductStatusButton
+                          productId={product.id}
+                          currentStatus={product.status || "activo"}
+                        />
+
+                        <Link
+                          href={`/dashboard/productos/${product.id}/editar`}
+                          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                        >
+                          <Pencil size={15} />
+                          Editar
+                        </Link>
+
+                        <DeleteProductButton productId={product.id} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
 
               {products.length === 0 && (
                 <tr>

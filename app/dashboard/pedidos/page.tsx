@@ -2,6 +2,29 @@ import Link from "next/link";
 import { Eye, PackageCheck, ShoppingCart, Truck } from "lucide-react";
 import { prisma } from "@/app/lib/prisma";
 
+type OrderItemModel = {
+  id: number;
+  productId: number;
+  quantity: number;
+  price: unknown;
+  subtotal: unknown;
+  products: {
+    id: number;
+    name: string;
+    image: string | null;
+  };
+};
+
+type OrderModel = {
+  id: number;
+  customerName: string;
+  customerPhone: string | null;
+  total: unknown;
+  status: string | null;
+  createdAt: Date;
+  order_items: OrderItemModel[];
+};
+
 function formatCurrency(value: unknown) {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
@@ -27,7 +50,7 @@ function getStatusClass(status: string | null) {
 }
 
 export default async function PedidosPage() {
-  const orders = await prisma.orders.findMany({
+  const orders = (await prisma.orders.findMany({
     include: {
       order_items: {
         include: {
@@ -38,13 +61,19 @@ export default async function PedidosPage() {
     orderBy: {
       createdAt: "desc",
     },
-  });
+  })) as OrderModel[];
 
-  const pendingOrders = orders.filter((order) => order.status === "pendiente");
-  const preparingOrders = orders.filter(
-    (order) => order.status === "preparando"
+  const pendingOrders = orders.filter(
+    (order: OrderModel) => order.status === "pendiente"
   );
-  const deliveredOrders = orders.filter((order) => order.status === "entregado");
+
+  const preparingOrders = orders.filter(
+    (order: OrderModel) => order.status === "preparando"
+  );
+
+  const deliveredOrders = orders.filter(
+    (order: OrderModel) => order.status === "entregado"
+  );
 
   return (
     <div className="space-y-8">
@@ -114,7 +143,7 @@ export default async function PedidosPage() {
             </thead>
 
             <tbody className="divide-y divide-slate-200">
-              {orders.map((order) => (
+              {orders.map((order: OrderModel) => (
                 <tr key={order.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 font-bold text-slate-900">
                     #{order.id}
@@ -144,7 +173,7 @@ export default async function PedidosPage() {
                         order.status || "pendiente"
                       )}`}
                     >
-                      {order.status}
+                      {order.status || "pendiente"}
                     </span>
                   </td>
 
