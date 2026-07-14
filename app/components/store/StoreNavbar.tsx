@@ -2,6 +2,12 @@ import Link from "next/link";
 import { BadgePercent, ChevronDown } from "lucide-react";
 import { prisma } from "@/app/lib/prisma";
 
+type CategoryModel = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
 export default async function StoreNavbar() {
   const categories = await prisma.categories.findMany({
     where: {
@@ -32,7 +38,7 @@ export default async function StoreNavbar() {
             <ChevronDown size={15} />
           </Link>
 
-          {categories.map((category) => (
+          {categories.map((category: CategoryModel) => (
             <Link
               key={category.id}
               href={`/productos?categoria=${category.slug}`}
