@@ -2,8 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
 
+type BannerModel = {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  image: string | null;
+  buttonText: string | null;
+  buttonUrl: string | null;
+  position: number | null;
+};
+
 function getImageSrc(image: string | null) {
-  if (!image) return null;
+  if (!image) return "/images/banner-placeholder.jpg";
 
   if (image.startsWith("/") || image.startsWith("http")) {
     return image;
@@ -13,138 +23,162 @@ function getImageSrc(image: string | null) {
 }
 
 export default async function HeroBanners() {
-  const banners = await prisma.banners.findMany({
+  const banners = (await prisma.banners.findMany({
     where: {
       status: "activo",
     },
     orderBy: {
       position: "asc",
     },
-  });
+  })) as BannerModel[];
 
   const mainBanner = banners[0];
-  const sideBanners = banners.slice(1, 4);
+
+  const sideBanners = banners.slice(1, 3);
+
+  if (!mainBanner) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-6">
+        <div className="relative min-h-[380px] overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-blue-700 to-slate-950 p-8 text-white shadow-xl">
+          <div className="relative z-10 max-w-xl">
+            <p className="mb-3 text-sm font-bold uppercase tracking-widest text-blue-100">
+              Panasonic Batteries
+            </p>
+
+            <h1 className="text-4xl font-black leading-tight md:text-6xl">
+              Energía confiable para tu día a día
+            </h1>
+
+            <p className="mt-4 text-lg text-blue-100">
+              Encuentra pilas Panasonic originales para hogar, negocio,
+              controles, juguetes, equipos y más.
+            </p>
+
+            <Link
+              href="/productos"
+              className="mt-8 inline-flex rounded-full bg-white px-6 py-3 text-sm font-black text-blue-800 transition hover:bg-blue-50"
+            >
+              Ver productos
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section className="mx-auto grid max-w-7xl gap-3 px-4 py-5 lg:grid-cols-[1.55fr_1.05fr]">
-      <div className="relative min-h-[340px] overflow-hidden rounded-2xl bg-blue-50">
-        {mainBanner && getImageSrc(mainBanner.image) ? (
+    <section className="mx-auto grid max-w-7xl gap-4 px-4 py-6 lg:grid-cols-[2fr_1fr]">
+      <div className="relative min-h-[380px] overflow-hidden rounded-3xl bg-slate-900 p-8 text-white shadow-xl">
+        {mainBanner.image && (
           <Image
-            src={getImageSrc(mainBanner.image)!}
+            src={getImageSrc(mainBanner.image)}
             alt={mainBanner.title}
             fill
             priority
-            className="object-cover"
+            className="object-cover opacity-70"
+            sizes="(max-width: 1024px) 100vw, 66vw"
           />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-slate-100" />
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/60 to-transparent" />
 
-        <div className="relative z-10 flex h-full max-w-md flex-col justify-center p-8 md:p-12">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-            Productos Panasonic
+        <div className="relative z-10 flex min-h-[320px] max-w-xl flex-col justify-center">
+          <p className="mb-3 text-sm font-bold uppercase tracking-widest text-blue-100">
+            Panasonic Batteries
           </p>
 
-          <h2 className="mt-3 text-3xl font-black leading-tight text-slate-950 md:text-5xl">
-            {mainBanner?.title || "Energía confiable para tu día"}
-          </h2>
+          <h1 className="text-4xl font-black leading-tight md:text-6xl">
+            {mainBanner.title}
+          </h1>
 
-          <p className="mt-4 text-sm text-slate-600 md:text-base">
-            {mainBanner?.subtitle ||
-              "Encuentra pilas alcalinas, litio, recargables y baterías especiales."}
-          </p>
+          {mainBanner.subtitle && (
+            <p className="mt-4 text-lg text-blue-100">
+              {mainBanner.subtitle}
+            </p>
+          )}
 
-          <div className="mt-6 flex items-center gap-3">
+          {mainBanner.buttonText && (
             <Link
-              href={mainBanner?.buttonUrl || "/productos"}
-              className="rounded-xl bg-blue-700 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+              href={mainBanner.buttonUrl || "/productos"}
+              className="mt-8 inline-flex w-fit rounded-full bg-white px-6 py-3 text-sm font-black text-blue-800 transition hover:bg-blue-50"
             >
-              {mainBanner?.buttonText || "Comprar ahora"}
+              {mainBanner.buttonText}
             </Link>
-          </div>
+          )}
         </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-1">
         {sideBanners.length > 0 ? (
-          sideBanners.map((banner, index) => (
+          sideBanners.map((banner: BannerModel, index: number) => (
             <div
               key={banner.id}
               className={`relative min-h-[160px] overflow-hidden rounded-2xl ${
-                index === 0 ? "bg-cyan-50" : "bg-blue-50"
-              }`}
+                index === 0 ? "bg-blue-700" : "bg-slate-900"
+              } p-6 text-white shadow-lg`}
             >
-              {getImageSrc(banner.image) && (
+              {banner.image && (
                 <Image
-                  src={getImageSrc(banner.image)!}
+                  src={getImageSrc(banner.image)}
                   alt={banner.title}
                   fill
-                  className="object-cover"
+                  className="object-cover opacity-50"
+                  sizes="(max-width: 1024px) 100vw, 33vw"
                 />
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/50 to-transparent" />
+              <div className="absolute inset-0 bg-slate-950/40" />
 
-              <div className="relative z-10 max-w-[230px] p-6">
-                <h3 className="text-xl font-black leading-tight text-slate-950">
-                  {banner.title}
-                </h3>
+              <div className="relative z-10">
+                <h2 className="text-2xl font-black">{banner.title}</h2>
 
                 {banner.subtitle && (
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm text-slate-100">
                     {banner.subtitle}
                   </p>
                 )}
 
-                <Link
-                  href={banner.buttonUrl || "/productos"}
-                  className="mt-4 inline-block text-sm font-bold text-blue-700 underline"
-                >
-                  {banner.buttonText || "Ver productos"}
-                </Link>
+                {banner.buttonText && (
+                  <Link
+                    href={banner.buttonUrl || "/productos"}
+                    className="mt-4 inline-flex rounded-full bg-white px-4 py-2 text-xs font-black text-slate-900 transition hover:bg-slate-100"
+                  >
+                    {banner.buttonText}
+                  </Link>
+                )}
               </div>
             </div>
           ))
         ) : (
           <>
-            <PromoCard
-              title="Pilas Alcalinas"
-              subtitle="Duración y potencia"
-              href="/productos"
-            />
-            <PromoCard
-              title="Recargables Eneloop"
-              subtitle="Ahorra y reutiliza"
-              href="/productos"
-            />
+            <div className="rounded-2xl bg-blue-700 p-6 text-white shadow-lg">
+              <h2 className="text-2xl font-black">Pilas Alcalinas</h2>
+              <p className="mt-2 text-sm text-blue-100">
+                Ideales para controles, juguetes y accesorios.
+              </p>
+              <Link
+                href="/productos"
+                className="mt-4 inline-flex rounded-full bg-white px-4 py-2 text-xs font-black text-blue-800"
+              >
+                Comprar ahora
+              </Link>
+            </div>
+
+            <div className="rounded-2xl bg-slate-900 p-6 text-white shadow-lg">
+              <h2 className="text-2xl font-black">Productos originales</h2>
+              <p className="mt-2 text-sm text-slate-200">
+                Energía confiable con calidad Panasonic.
+              </p>
+              <Link
+                href="/productos"
+                className="mt-4 inline-flex rounded-full bg-white px-4 py-2 text-xs font-black text-slate-900"
+              >
+                Ver catálogo
+              </Link>
+            </div>
           </>
         )}
       </div>
     </section>
-  );
-}
-
-function PromoCard({
-  title,
-  subtitle,
-  href,
-}: {
-  title: string;
-  subtitle: string;
-  href: string;
-}) {
-  return (
-    <div className="relative min-h-[160px] overflow-hidden rounded-2xl bg-slate-100 p-6">
-      <h3 className="text-xl font-black text-slate-950">{title}</h3>
-      <p className="mt-2 text-sm text-slate-600">{subtitle}</p>
-      <Link
-        href={href}
-        className="mt-4 inline-block text-sm font-bold text-blue-700 underline"
-      >
-        Comprar ahora
-      </Link>
-    </div>
   );
 }
