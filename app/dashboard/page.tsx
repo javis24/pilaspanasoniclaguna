@@ -8,6 +8,12 @@ import {
 import StatCard from "../components/dashboard/StatCard";
 import { prisma } from "../lib/prisma";
 
+type ProductModel = {
+  id: number;
+  price: unknown;
+  stock: number;
+};
+
 export default async function DashboardPage() {
   const productsCount = await prisma.products.count();
   const categoriesCount = await prisma.categories.count();
@@ -31,11 +37,14 @@ export default async function DashboardPage() {
     },
   });
 
-  const products = await prisma.products.findMany();
+ const products = (await prisma.products.findMany()) as ProductModel[];
 
-  const inventoryValue = products.reduce((total, product) => {
+const inventoryValue = products.reduce(
+  (total: number, product: ProductModel) => {
     return total + Number(product.price) * product.stock;
-  }, 0);
+  },
+  0
+);
 
   return (
     <div className="space-y-8">
