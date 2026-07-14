@@ -3,6 +3,12 @@ import { BatteryCharging, Headphones, Search, User } from "lucide-react";
 import CartHeaderButton from "./CartHeaderButton";
 import { prisma } from "@/app/lib/prisma";
 
+ type CategoryModel = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
 export default async function StoreHeader() {
   const categories = await prisma.categories.findMany({
     where: {
@@ -12,6 +18,8 @@ export default async function StoreHeader() {
       name: "asc",
     },
   });
+
+ 
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -34,7 +42,7 @@ export default async function StoreHeader() {
         <form className="flex overflow-hidden rounded-xl border-2 border-blue-700 bg-white">
           <select className="hidden border-r border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none md:block">
             <option>Todas las categorías</option>
-            {categories.map((category) => (
+            {categories.map((category: CategoryModel) => (
               <option key={category.id}>{category.name}</option>
             ))}
           </select>
