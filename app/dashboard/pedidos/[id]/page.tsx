@@ -11,6 +11,33 @@ type Props = {
   }>;
 };
 
+type OrderItemModel = {
+  id: number;
+  quantity: number;
+  price: unknown;
+  subtotal: unknown;
+  products: {
+    id: number;
+    name: string;
+    image: string | null;
+    sku: string | null;
+  };
+};
+
+type OrderModel = {
+  id: number;
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  shippingAddress: string | null;
+  total: unknown;
+  status: string | null;
+  paymentStatus: string | null;
+  paymentMethod: string | null;
+  createdAt: Date;
+  order_items: OrderItemModel[];
+};
+
 function formatCurrency(value: unknown) {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
@@ -28,13 +55,7 @@ function getImageSrc(image: string | null) {
   return `/${image}`;
 }
 
-function createWhatsappLink(order: {
-  id: number;
-  customerName: string;
-  customerPhone: string | null;
-  shippingAddress: string | null;
-  total: unknown;
-}) {
+function createWhatsappLink(order: OrderModel) {
   const phone = order.customerPhone
     ? `52${order.customerPhone.replace(/\D/g, "")}`
     : "528712194723";
@@ -51,7 +72,7 @@ function createWhatsappLink(order: {
 export default async function PedidoDetallePage({ params }: Props) {
   const { id } = await params;
 
-  const order = await prisma.orders.findUnique({
+  const order = (await prisma.orders.findUnique({
     where: {
       id: Number(id),
     },
@@ -62,7 +83,7 @@ export default async function PedidoDetallePage({ params }: Props) {
         },
       },
     },
-  });
+  })) as OrderModel | null;
 
   if (!order) {
     notFound();
@@ -99,9 +120,22 @@ export default async function PedidoDetallePage({ params }: Props) {
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <Info label="Cliente" value={order.customerName} />
-              <Info label="Teléfono" value={order.customerPhone || "Sin teléfono"} />
-              <Info label="Correo" value={order.customerEmail || "Sin correo"} />
-              <Info label="Método de pago" value={order.paymentMethod || "Sin método"} />
+
+              <Info
+                label="Teléfono"
+                value={order.customerPhone || "Sin teléfono"}
+              />
+
+              <Info
+                label="Correo"
+                value={order.customerEmail || "Sin correo"}
+              />
+
+              <Info
+                label="Método de pago"
+                value={order.paymentMethod || "Sin método"}
+              />
+
               <div className="md:col-span-2">
                 <Info
                   label="Dirección"
@@ -129,7 +163,7 @@ export default async function PedidoDetallePage({ params }: Props) {
             </div>
 
             <div className="divide-y divide-slate-200">
-              {order.order_items.map((item) => {
+              {order.order_items.map((item: OrderItemModel) => {
                 const imageSrc = getImageSrc(item.products.image);
 
                 return (
@@ -145,6 +179,7 @@ export default async function PedidoDetallePage({ params }: Props) {
                             alt={item.products.name}
                             fill
                             className="object-contain p-2"
+                            sizes="64px"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
@@ -157,6 +192,7 @@ export default async function PedidoDetallePage({ params }: Props) {
                         <p className="font-bold text-slate-900">
                           {item.products.name}
                         </p>
+
                         <p className="text-xs text-slate-500">
                           SKU: {item.products.sku || "Sin SKU"}
                         </p>
@@ -183,16 +219,19 @@ export default async function PedidoDetallePage({ params }: Props) {
 
         <aside className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">
-              Resumen
-            </h2>
+            <h2 className="text-lg font-bold text-slate-900">Resumen</h2>
 
             <div className="mt-5 space-y-3">
-              <Info label="Estatus pedido" value={order.status || "pendiente"} />
+              <Info
+                label="Estatus pedido"
+                value={order.status || "pendiente"}
+              />
+
               <Info
                 label="Estatus pago"
                 value={order.paymentStatus || "pendiente"}
               />
+
               <Info
                 label="Fecha"
                 value={new Date(order.createdAt).toLocaleString("es-MX")}
@@ -201,7 +240,10 @@ export default async function PedidoDetallePage({ params }: Props) {
 
             <div className="mt-6 border-t border-slate-200 pt-6">
               <div className="flex items-center justify-between">
-                <span className="text-lg font-black text-slate-900">Total</span>
+                <span className="text-lg font-black text-slate-900">
+                  Total
+                </span>
+
                 <span className="text-2xl font-black text-blue-700">
                   {formatCurrency(order.total)}
                 </span>
@@ -234,6 +276,7 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
         {label}
       </p>
+
       <p className="mt-1 font-semibold text-slate-800">{value}</p>
     </div>
   );
