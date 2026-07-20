@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
@@ -49,15 +49,14 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          message: "La imagen no debe pesar más de 5 MB",
+          message: "La imagen no debe pesar más de 5 MB.",
         },
         { status: 400 }
       );
     }
 
-    const cleanFolder = folder || "uploads";
-
     const extension = file.name.split(".").pop() || "jpg";
+    const cleanFolder = folder || "uploads";
 
     const fileName = `${cleanFolder}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
 

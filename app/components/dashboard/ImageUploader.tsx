@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Upload, Loader2, X } from "lucide-react";
+import { Loader2, Upload, X } from "lucide-react";
 
 type ImageUploaderProps = {
   value: string;
@@ -21,19 +21,17 @@ export default function ImageUploader({
   const [error, setError] = useState("");
 
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
     try {
       setError("");
-
-      const file = event.target.files?.[0];
-
-      if (!file) return;
+      setIsUploading(true);
 
       const formData = new FormData();
-
       formData.append("file", file);
       formData.append("folder", folder);
-
-      setIsUploading(true);
 
       const response = await fetch("/api/upload/image", {
         method: "POST",
@@ -56,44 +54,60 @@ export default function ImageUploader({
     }
   }
 
-  function removeImage() {
-    onChange("");
-  }
-
   return (
-    <div className="space-y-3">
-      <label className="block text-sm font-bold text-slate-700">
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6">
+      <label className="block text-sm font-bold text-slate-900">
         {label}
       </label>
 
       {value ? (
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="relative h-48 w-full">
+        <div className="space-y-4">
+          <div className="relative h-52 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             <Image
               src={value}
               alt="Imagen subida"
               fill
-              className="object-contain"
+              className="object-contain p-3"
               sizes="400px"
             />
           </div>
 
-          <button
-            type="button"
-            onClick={removeImage}
-            className="absolute right-3 top-3 rounded-full bg-red-600 p-2 text-white shadow hover:bg-red-700"
-          >
-            <X size={16} />
-          </button>
+          <p className="break-all text-xs text-slate-500">{value}</p>
 
-          <p className="mt-3 break-all text-xs text-slate-500">{value}</p>
+          <div className="flex gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
+              {isUploading ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <Upload size={16} />
+              )}
+              Cambiar imagen
+
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleUpload}
+                disabled={isUploading}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+            >
+              <X size={16} />
+              Quitar
+            </button>
+          </div>
         </div>
       ) : (
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-blue-500 hover:bg-blue-50">
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center hover:border-blue-500 hover:bg-blue-50">
           {isUploading ? (
-            <Loader2 className="animate-spin text-blue-700" size={32} />
+            <Loader2 className="animate-spin text-blue-700" size={34} />
           ) : (
-            <Upload className="text-blue-700" size={32} />
+            <Upload className="text-blue-700" size={34} />
           )}
 
           <span className="mt-3 text-sm font-bold text-slate-800">

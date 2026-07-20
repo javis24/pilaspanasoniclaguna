@@ -341,16 +341,16 @@ export default function ProductForm({ categories, product }: Props) {
               Ruta de imagen
             </label>
             <ImageUploader
-              label="Imagen del producto"
-              value={form.image}
-              folder="products"
-              onChange={(url) =>
-                setForm((prev) => ({
-                  ...prev,
-                  image: url,
-                }))
-              }
-            />
+  label="Imagen del producto"
+  value={form.image}
+  folder="products"
+  onChange={(url) =>
+    setForm((prev) => ({
+      ...prev,
+      image: url,
+    }))
+  }
+/>
             <p className="mt-2 text-xs text-slate-500">
               Por ahora se guarda la ruta de imagen. Después podemos agregar
               carga directa de archivos.

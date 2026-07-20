@@ -1,9 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Plus, Pencil, Package, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Package, AlertTriangle, Search } from "lucide-react";
 import { prisma } from "@/app/lib/prisma";
 import DeleteProductButton from "@/app/components/dashboard/DeleteProductButton";
 import ToggleProductStatusButton from "@/app/components/dashboard/ToggleProductStatusButton";
+
+type Props = {
+  searchParams?: Promise<{
+    buscar?: string;
+  }>;
+};
 
 type ProductModel = {
   id: number;
@@ -31,15 +37,36 @@ function getImageSrc(image: string | null) {
   return `/${image}`;
 }
 
-export default async function ProductosPage() {
-  const products = (await prisma.products.findMany({
-    include: {
-      categories: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  })) as ProductModel[];
+export default async function ProductosPage({ searchParams }: Props) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const buscar = resolvedSearchParams.buscar?.trim() || "";
+
+ const allProducts = (await prisma.products.findMany({
+  include: {
+    categories: true,
+  },
+  orderBy: {
+    createdAt: "desc",
+  },
+})) as ProductModel[];
+
+const searchText = buscar.toLowerCase();
+
+const products = buscar
+  ? allProducts.filter((product: ProductModel) => {
+      const name = product.name?.toLowerCase() || "";
+      const slug = product.slug?.toLowerCase() || "";
+      const sku = product.sku?.toLowerCase() || "";
+      const category = product.categories?.name?.toLowerCase() || "";
+
+      return (
+        name.includes(searchText) ||
+        slug.includes(searchText) ||
+        sku.includes(searchText) ||
+        category.includes(searchText)
+      );
+    })
+  : allProducts;
 
   const totalProducts = products.length;
 
@@ -56,8 +83,11 @@ export default async function ProductosPage() {
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Productos</h1>
+
           <p className="mt-2 text-slate-500">
-            Administra el catálogo de pilas Panasonic.
+            {buscar
+              ? `Resultados de búsqueda para: "${buscar}"`
+              : "Administra el catálogo de pilas Panasonic."}
           </p>
         </div>
 
@@ -70,12 +100,31 @@ export default async function ProductosPage() {
         </Link>
       </div>
 
+      {buscar && (
+        <div className="flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <Search size={20} className="text-blue-700" />
+            <p className="text-sm font-semibold text-blue-900">
+              Se encontraron {products.length} producto(s) relacionados con{" "}
+              <span className="font-black">"{buscar}"</span>
+            </p>
+          </div>
+
+          <Link
+            href="/dashboard/productos"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-blue-700 shadow-sm hover:bg-blue-100"
+          >
+            Limpiar búsqueda
+          </Link>
+        </div>
+      )}
+
       <section className="grid gap-6 md:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">
-                Total productos
+                {buscar ? "Productos encontrados" : "Total productos"}
               </p>
               <h2 className="mt-2 text-3xl font-bold text-slate-900">
                 {totalProducts}
@@ -233,7 +282,9 @@ export default async function ProductosPage() {
                     colSpan={7}
                     className="px-6 py-10 text-center text-slate-500"
                   >
-                    No hay productos registrados.
+                    {buscar
+                      ? `No se encontraron productos para "${buscar}".`
+                      : "No hay productos registrados."}
                   </td>
                 </tr>
               )}
