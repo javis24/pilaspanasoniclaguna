@@ -1,72 +1,104 @@
 import Link from "next/link";
-import { BatteryCharging, Headphones, Search, User } from "lucide-react";
+import { Headphones, User } from "lucide-react";
 import CartHeaderButton from "./CartHeaderButton";
+import StoreSearchBar from "./StoreSearchBar";
 import { prisma } from "@/app/lib/prisma";
+import Image from "next/image";
 
- type CategoryModel = {
+type CategoryModel = {
   id: number;
   name: string;
   slug: string;
 };
 
+type ProductWithCategory = {
+  id: number;
+  name: string;
+  slug: string;
+  sku: string | null;
+  image: string | null;
+  categories: {
+    name: string;
+  } | null;
+};
+
 export default async function StoreHeader() {
-  const categories = await prisma.categories.findMany({
+  const categories = (await prisma.categories.findMany({
     where: {
       status: "activo",
     },
     orderBy: {
       name: "asc",
     },
-  });
+  })) as CategoryModel[];
 
- 
+  const products = (await prisma.products.findMany({
+    where: {
+      status: "activo",
+    },
+    include: {
+      categories: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+    take: 200,
+  })) as ProductWithCategory[];
+
+  const productSuggestions = products.map((product: ProductWithCategory) => ({
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    sku: product.sku,
+    image: product.image,
+    categoryName: product.categories?.name || null,
+  }));
+
+
+  const whatsappHelpMessage = encodeURIComponent(
+  "Hola, necesito ayuda para escoger la pila adecuada o tengo una duda sobre un producto."
+);
+
+const whatsappHelpUrl = `https://wa.me/528711779093?text=${whatsappHelpMessage}`;
 
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl items-center gap-5 px-4 py-5 lg:grid-cols-[240px_1fr_420px]">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-700 text-white">
-            <BatteryCharging size={28} />
-          </div>
-
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">
-              Panasonic
-            </h1>
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-              Battery Store
-            </p>
-          </div>
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/LogoPilas.png"
+            alt="Panasonic Battery Store"
+            width={100}
+            height={20}
+            priority
+            className="h-auto w-[110px] object-contain"
+          />
         </Link>
 
-        <form className="flex overflow-hidden rounded-xl border-2 border-blue-700 bg-white">
-          <select className="hidden border-r border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none md:block">
-            <option>Todas las categorías</option>
-            {categories.map((category: CategoryModel) => (
-              <option key={category.id}>{category.name}</option>
-            ))}
-          </select>
-
-          <input
-            className="min-w-0 flex-1 px-4 py-3 text-sm text-slate-700 outline-none"
-            placeholder="Buscar pilas, baterías, modelos..."
-          />
-
-          <button
-            type="submit"
-            className="flex w-14 items-center justify-center bg-blue-700 text-white transition hover:bg-blue-800"
-          >
-            <Search size={21} />
-          </button>
-        </form>
+        <StoreSearchBar
+          categories={categories}
+          products={productSuggestions}
+        />
 
         <div className="hidden items-center justify-end gap-6 lg:flex">
           <div className="flex items-center gap-3 border-r border-slate-200 pr-6">
-            <Headphones size={32} className="text-slate-900" />
+          
+                      <a
+            href={whatsappHelpUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 border-r border-slate-200 pr-6 transition hover:text-green-600"
+          >
+           
+
             <div>
               <p className="text-xs text-slate-500">¿Necesitas ayuda?</p>
-              <p className="font-bold text-slate-900">871 219 4723</p>
+              <p className="font-bold text-slate-900">871 177 9093</p>
+              <p className="text-xs font-semibold text-green-600">
+                Escríbenos por WhatsApp
+              </p>
             </div>
+          </a>
           </div>
 
           <Link
