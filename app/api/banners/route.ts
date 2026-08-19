@@ -1,8 +1,33 @@
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { prisma } from "@/app/lib/prisma";
 import { getCurrentAdmin } from "@/app/lib/auth";
+import { v4 as uuidv4 } from "uuid";
 
-export const runtime = "nodejs";
+export async function GET() {
+  try {
+    const banners = await prisma.banners.findMany({
+      orderBy: {
+        position: "asc",
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      total: banners.length,
+      banners,
+    });
+  } catch (error) {
+    console.error("Error al obtener banners:", error);
+
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Error al obtener banners",
+      },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -18,69 +43,50 @@ export async function POST(request: Request) {
       );
     }
 
-    const formData = await request.formData();
+    const body = await request.json();
 
-    const file = formData.get("file") as File | null;
-    const folder = formData.get("folder") as string | null;
-
-    if (!file) {
+    if (!body.title?.trim()) {
       return NextResponse.json(
         {
           ok: false,
-          message: "No se recibió ninguna imagen",
+          message: "El título es obligatorio",
         },
         { status: 400 }
       );
     }
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const now = new Date();
 
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Formato no permitido. Usa JPG, PNG o WEBP.",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Recomendado para evitar "Request Entity Too Large"
-    const maxSize = 4 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "La imagen no debe pesar más de 4 MB.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const extension = file.name.split(".").pop() || "jpg";
-    const cleanFolder = folder || "uploads";
-
-    const fileName = `${cleanFolder}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-
-    const blob = await put(fileName, file, {
-      access: "public",
+    const banner = await prisma.banners.create({
+      data: {
+        uuid: uuidv4(),
+        title: body.title.trim(),
+        subtitle: body.subtitle || null,
+        image: body.image || null,
+        buttonText: body.buttonText || null,
+        buttonUrl: body.buttonUrl || null,
+        position: Number(body.position || 1),
+        status: body.status || "activo",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
 
-    return NextResponse.json({
-      ok: true,
-      url: blob.url,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        message: "Banner creado correctamente",
+        banner,
+      },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error("Error al subir imagen:", error);
+    console.error("Error al crear banner:", error);
 
     return NextResponse.json(
       {
         ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Error al subir imagen",
+        message: "Error al crear banner",
       },
       { status: 500 }
     );
