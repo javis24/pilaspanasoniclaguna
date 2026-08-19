@@ -1,47 +1,54 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { prisma } from "@/app/lib/prisma";
-import { getCurrentAdmin } from "@/app/lib/auth";
 import { v4 as uuidv4 } from "uuid";
+
+import { getCurrentAdmin } from "@/app/lib/auth";
+import { prisma } from "@/app/lib/prisma";
 
 type CartItem = {
   id: number;
   quantity: number;
-  price: number;
 };
 
-type ProductModel = {
-  id: number;
-  name: string;
-  price: unknown;
-  discountPrice: unknown | null;
-  stock: number;
-};
+const paymentMethods = new Set([
+  "whatsapp",
+  "efectivo",
+  "transferencia",
+]);
 
-type TransactionClient = {
-  orders: typeof prisma.orders;
-  order_items: typeof prisma.order_items;
-  products: typeof prisma.products;
-};
+class InventoryConflictError extends Error {
+  constructor(productName: string) {
+    super(
+      `El producto "${productName}" ya no está disponible o no tiene stock suficiente`
+    );
+    this.name = "InventoryConflictError";
+  }
+}
 
-type CalculatedItem = {
-  product: ProductModel;
-  quantity: number;
-  price: number;
-  subtotal: number;
-};
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function errorResponse(message: string, status: number) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message,
+    },
+    { status }
+  );
+}
 
 export async function GET() {
   try {
     const admin = await getCurrentAdmin();
 
     if (!admin) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "No autorizado",
-        },
-        { status: 401 }
-      );
+      return errorResponse("No autorizado", 401);
     }
 
     const orders = await prisma.orders.findMany({
@@ -66,183 +73,223 @@ export async function GET() {
   } catch (error) {
     console.error("Error al obtener pedidos:", error);
 
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "Error al obtener pedidos",
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error al obtener pedidos", 500);
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body: unknown;
 
-    const {
-      customerName,
-      customerEmail,
-      customerPhone,
-      shippingAddress,
-      paymentMethod,
-      items,
-    } = body;
+    try {
+      body = await request.json();
+    } catch {
+      return errorResponse(
+        "El cuerpo de la solicitud no contiene JSON válido",
+        400
+      );
+    }
+
+    if (!isRecord(body)) {
+      return errorResponse("Los datos del pedido no son válidos", 400);
+    }
+
+    const customerName = getText(body.customerName);
+    const customerEmail = getText(body.customerEmail);
+    const customerPhone = getText(body.customerPhone);
+    const shippingAddress = getText(body.shippingAddress);
+    const paymentMethod = getText(body.paymentMethod) || "whatsapp";
 
     if (!customerName || !customerPhone || !shippingAddress) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Nombre, teléfono y dirección son obligatorios",
-        },
-        { status: 400 }
+      return errorResponse(
+        "Nombre, teléfono y dirección son obligatorios",
+        400
       );
     }
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "El carrito está vacío",
-        },
-        { status: 400 }
+    if (
+      customerName.length > 255 ||
+      customerEmail.length > 255 ||
+      customerPhone.length > 255 ||
+      paymentMethod.length > 255
+    ) {
+      return errorResponse(
+        "Uno o más datos del cliente son demasiado largos",
+        400
       );
     }
 
-    const cartItems = items as CartItem[];
+    if (!paymentMethods.has(paymentMethod)) {
+      return errorResponse("El método de pago no es válido", 400);
+    }
 
-    const productIds = cartItems.map((item: CartItem) => Number(item.id));
+    if (!Array.isArray(body.items) || body.items.length === 0) {
+      return errorResponse("El carrito está vacío", 400);
+    }
 
-    const products = (await prisma.products.findMany({
+    const cartItems: CartItem[] = [];
+
+    for (const item of body.items) {
+      if (
+        !isRecord(item) ||
+        typeof item.id !== "number" ||
+        !Number.isSafeInteger(item.id) ||
+        item.id <= 0 ||
+        typeof item.quantity !== "number" ||
+        !Number.isSafeInteger(item.quantity) ||
+        item.quantity <= 0
+      ) {
+        return errorResponse(
+          "Cada producto debe tener un ID y una cantidad entera mayor que cero",
+          400
+        );
+      }
+
+      cartItems.push({
+        id: item.id,
+        quantity: item.quantity,
+      });
+    }
+
+    const productIds = cartItems.map((item) => item.id);
+    const uniqueProductIds = new Set(productIds);
+
+    if (uniqueProductIds.size !== productIds.length) {
+      return errorResponse("El carrito contiene productos repetidos", 400);
+    }
+
+    const products = await prisma.products.findMany({
       where: {
         id: {
           in: productIds,
         },
         status: "activo",
       },
-    })) as ProductModel[];
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        discountPrice: true,
+      },
+    });
 
     if (products.length !== productIds.length) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Uno o más productos no existen o están inactivos",
-        },
-        { status: 400 }
+      return errorResponse(
+        "Uno o más productos no existen o están inactivos",
+        400
       );
     }
 
-    for (const item of cartItems) {
-      const product = products.find(
-        (p: ProductModel) => p.id === Number(item.id)
-      );
+    const productsById = new Map(
+      products.map((product) => [product.id, product])
+    );
 
-      if (!product) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message: "Producto no encontrado",
-          },
-          { status: 400 }
-        );
-      }
+    const calculatedItems = cartItems
+      .map((item) => {
+        const product = productsById.get(item.id);
 
-      if (Number(item.quantity) > product.stock) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message: `No hay stock suficiente para: ${product.name}`,
-          },
-          { status: 400 }
-        );
-      }
-    }
+        if (!product) {
+          return null;
+        }
 
-    const calculatedItems: CalculatedItem[] = cartItems.map(
-      (item: CartItem) => {
-        const product = products.find(
-          (p: ProductModel) => p.id === Number(item.id)
-        )!;
-
-        const realPrice = product.discountPrice
-          ? Number(product.discountPrice)
-          : Number(product.price);
-
-        const quantity = Number(item.quantity);
-        const subtotal = realPrice * quantity;
+        const price = product.discountPrice ?? product.price;
 
         return {
           product,
-          quantity,
-          price: realPrice,
-          subtotal,
+          quantity: item.quantity,
+          price,
+          subtotal: price.mul(item.quantity),
         };
-      }
-    );
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .sort((a, b) => a.product.id - b.product.id);
+
+    if (calculatedItems.length !== cartItems.length) {
+      return errorResponse("Producto no encontrado", 400);
+    }
+
+    if (
+      calculatedItems.some(
+        (item) =>
+          !Number.isFinite(item.price.toNumber()) || item.price.isNegative()
+      )
+    ) {
+      return errorResponse(
+        "Uno o más productos tienen un precio no válido",
+        400
+      );
+    }
 
     const total = calculatedItems.reduce(
-      (sum: number, item: CalculatedItem) => sum + item.subtotal,
-      0
+      (sum, item) => sum.plus(item.subtotal),
+      new Prisma.Decimal(0)
     );
-
     const now = new Date();
 
-    const order = await prisma.$transaction(async (tx: TransactionClient) => {
-  const createdOrder = await tx.orders.create({
-    data: {
-      uuid: uuidv4(),
-      customerName,
-      customerEmail: customerEmail || null,
-      customerPhone,
-      shippingAddress,
-      total,
-      status: "pendiente",
-      paymentStatus: "pendiente",
-      paymentMethod: paymentMethod || "whatsapp",
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
+    const fullOrder = await prisma.$transaction(async (tx) => {
+      const createdOrder = await tx.orders.create({
+        data: {
+          uuid: uuidv4(),
+          customerName,
+          customerEmail: customerEmail || null,
+          customerPhone,
+          shippingAddress,
+          total,
+          status: "pendiente",
+          paymentStatus: "pendiente",
+          paymentMethod,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
 
-  for (const item of calculatedItems) {
-    await tx.order_items.create({
-      data: {
-        uuid: uuidv4(),
-        orderId: createdOrder.id,
-        productId: item.product.id,
-        quantity: item.quantity,
-        price: item.price,
-        subtotal: item.subtotal,
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
+      for (const item of calculatedItems) {
+        const stockUpdate = await tx.products.updateMany({
+          where: {
+            id: item.product.id,
+            status: "activo",
+            stock: {
+              gte: item.quantity,
+            },
+          },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+            updatedAt: now,
+          },
+        });
 
-    await tx.products.update({
-      where: {
-        id: item.product.id,
-      },
-      data: {
-        stock: item.product.stock - item.quantity,
-        updatedAt: now,
-      },
-    });
-  }
+        if (stockUpdate.count !== 1) {
+          throw new InventoryConflictError(item.product.name);
+        }
 
-  return createdOrder;
-});
+        await tx.order_items.create({
+          data: {
+            uuid: uuidv4(),
+            orderId: createdOrder.id,
+            productId: item.product.id,
+            quantity: item.quantity,
+            price: item.price,
+            subtotal: item.subtotal,
+            createdAt: now,
+            updatedAt: now,
+          },
+        });
+      }
 
-    const fullOrder = await prisma.orders.findUnique({
-      where: {
-        id: order.id,
-      },
-      include: {
-        order_items: {
-          include: {
-            products: true,
+      return tx.orders.findUniqueOrThrow({
+        where: {
+          id: createdOrder.id,
+        },
+        include: {
+          order_items: {
+            include: {
+              products: true,
+            },
           },
         },
-      },
+      });
     });
 
     return NextResponse.json(
@@ -254,14 +301,12 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof InventoryConflictError) {
+      return errorResponse(error.message, 409);
+    }
+
     console.error("Error al crear pedido:", error);
 
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "Error al crear pedido",
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error al crear pedido", 500);
   }
 }
