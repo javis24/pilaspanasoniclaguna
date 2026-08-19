@@ -7,6 +7,7 @@ import { prisma } from "../lib/prisma";
 type Props = {
   searchParams: Promise<{
     categoria?: string;
+    buscar?: string;
   }>;
 };
 

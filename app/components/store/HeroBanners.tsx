@@ -83,9 +83,7 @@ export default async function HeroBanners() {
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/60 to-transparent" />
 
         <div className="relative z-10 flex min-h-[320px] max-w-xl flex-col justify-center">
-          <p className="mb-3 text-sm font-bold uppercase tracking-widest text-blue-100">
-            Panasonic Batteries
-          </p>
+       
 
           <h1 className="text-4xl font-black leading-tight md:text-6xl">
             {mainBanner.title}
