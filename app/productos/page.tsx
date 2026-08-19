@@ -1,3 +1,4 @@
+import Link from "next/link";
 import StoreTopBar from "../components/store/StoreTopBar";
 import StoreHeader from "../components/store/StoreHeader";
 import StoreNavbar from "../components/store/StoreNavbar";
@@ -12,15 +13,76 @@ type Props = {
 };
 
 export default async function ProductosPage({ searchParams }: Props) {
-  const { categoria } = await searchParams;
+  const { categoria, buscar } = await searchParams;
+  const searchTerm = buscar?.trim();
+
+  const buildProductsUrl = (categorySlug?: string) => {
+    const params = new URLSearchParams();
+
+    if (categorySlug) {
+      params.set("categoria", categorySlug);
+    }
+
+    if (searchTerm) {
+      params.set("buscar", searchTerm);
+    }
+
+    const query = params.toString();
+
+    return query ? `/productos?${query}` : "/productos";
+  };
 
   const products = await prisma.products.findMany({
     where: {
       status: "activo",
+
       categories: categoria
         ? {
             slug: categoria,
           }
+        : undefined,
+
+      OR: searchTerm
+        ? [
+            {
+              name: {
+                contains: searchTerm,
+              },
+            },
+            {
+              slug: {
+                contains: searchTerm,
+              },
+            },
+            {
+              sku: {
+                contains: searchTerm,
+              },
+            },
+            {
+              description: {
+                contains: searchTerm,
+              },
+            },
+            {
+              categories: {
+                is: {
+                  name: {
+                    contains: searchTerm,
+                  },
+                },
+              },
+            },
+            {
+              categories: {
+                is: {
+                  slug: {
+                    contains: searchTerm,
+                  },
+                },
+              },
+            },
+          ]
         : undefined,
     },
     include: {
@@ -51,11 +113,14 @@ export default async function ProductosPage({ searchParams }: Props) {
           <p className="text-sm font-black uppercase tracking-wide text-blue-700">
             Tienda
           </p>
+
           <h1 className="mt-2 text-4xl font-black text-slate-950">
             Productos Panasonic
           </h1>
+
           <p className="mt-3 max-w-2xl text-slate-500">
-            Encuentra pilas alcalinas, litio, zinc carbón, recargables Eneloop y baterías especiales.
+            Encuentra pilas alcalinas, litio, zinc carbón, recargables Eneloop
+            y baterías especiales.
           </p>
         </div>
       </section>
@@ -65,8 +130,8 @@ export default async function ProductosPage({ searchParams }: Props) {
           <h2 className="text-lg font-black text-slate-900">Categorías</h2>
 
           <div className="mt-5 space-y-2">
-            <a
-              href="/productos"
+            <Link
+              href={buildProductsUrl()}
               className={`block rounded-xl px-4 py-3 text-sm font-semibold ${
                 !categoria
                   ? "bg-blue-700 text-white"
@@ -74,12 +139,12 @@ export default async function ProductosPage({ searchParams }: Props) {
               }`}
             >
               Todas
-            </a>
+            </Link>
 
             {categories.map((category) => (
-              <a
+              <Link
                 key={category.id}
-                href={`/productos?categoria=${category.slug}`}
+                href={buildProductsUrl(category.slug)}
                 className={`block rounded-xl px-4 py-3 text-sm font-semibold ${
                   categoria === category.slug
                     ? "bg-blue-700 text-white"
@@ -87,7 +152,7 @@ export default async function ProductosPage({ searchParams }: Props) {
                 }`}
               >
                 {category.name}
-              </a>
+              </Link>
             ))}
           </div>
         </aside>
@@ -96,6 +161,7 @@ export default async function ProductosPage({ searchParams }: Props) {
           <div className="mb-6 flex items-center justify-between">
             <p className="text-sm text-slate-500">
               {products.length} productos encontrados
+              {searchTerm ? ` para "${searchTerm}"` : ""}
             </p>
           </div>
 
@@ -106,7 +172,9 @@ export default async function ProductosPage({ searchParams }: Props) {
 
             {products.length === 0 && (
               <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
-                No hay productos en esta categoría.
+                {searchTerm
+                  ? `No hay productos que coincidan con "${searchTerm}".`
+                  : "No hay productos en esta categoría."}
               </div>
             )}
           </div>
